@@ -1,6 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using TMPro; 
+using TMPro;
 
 public class PlayerMovement : MonoBehaviour
 {
@@ -16,130 +16,259 @@ public class PlayerMovement : MonoBehaviour
     public float checkRadius = 0.2f;
 
     [Header("Screen Boundary")]
-    public float minX = -8.5f; 
+    public float minX = -8.5f;
     public float maxX = 8.5f;
 
     [Header("UI Settings")]
-    public GameObject victoryPanel; 
-    public TextMeshProUGUI scoreText; // Slot untuk menarik ScoreText UI dari Hierarchy
+    public GameObject victoryPanel;
+    public TextMeshProUGUI scoreText;
+
+    [Header("Lives Settings")]
+    public int maxLives = 5;
+    public int currentLives;
+    public GameObject gameOverPanel;
+    public TextMeshProUGUI livesText;
+
+    [Header("Damage Settings")]
+    public float damageCooldown = 1f;   // Jeda agar nyawa tidak berkurang berkali-kali
 
     private Rigidbody2D rb;
     private float moveInput;
     private bool isGrounded;
     private Vector3 startPosition;
     private Vector3 initialScale;
-    private int score = 0; // Variabel penyimpan poin
+    private int score = 0;
+
+    // Mencegah damage berulang
+    private bool isInvincible = false;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
-        
+
         startPosition = transform.position;
-        initialScale = transform.localScale; 
-        
-        rb.gravityScale = 3.5f; 
-        rb.freezeRotation = true; 
+        initialScale = transform.localScale;
+
+        rb.gravityScale = 3.5f;
+        rb.freezeRotation = true;
         rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
+        // Sembunyikan panel kemenangan
         if (victoryPanel != null)
-        {
             victoryPanel.SetActive(false);
-        }
 
-        UpdateScoreUI(); // Set tampilan skor awal
+        // Inisialisasi nyawa
+        currentLives = maxLives;
+
+        // Sembunyikan Game Over
+        if (gameOverPanel != null)
+            gameOverPanel.SetActive(false);
+
+        // Update UI
+        UpdateScoreUI();
+        UpdateLivesUI();
     }
 
     void Update()
     {
         moveInput = Input.GetAxisRaw("Horizontal");
 
+        // Cek apakah player menyentuh ground
         if (groundCheck != null)
         {
-            isGrounded = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+            isGrounded = Physics2D.OverlapCircle(
+                groundCheck.position,
+                checkRadius,
+                groundLayer
+            );
         }
 
+        // Lompat
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
         }
 
-        if (moveInput > 0) 
+        // Flip sprite
+        if (moveInput > 0)
         {
-            transform.localScale = initialScale; 
+            transform.localScale = initialScale;
         }
-        else if (moveInput < 0) 
+        else if (moveInput < 0)
         {
-            transform.localScale = new Vector3(-initialScale.x, initialScale.y, initialScale.z);
+            transform.localScale = new Vector3(
+                -initialScale.x,
+                initialScale.y,
+                initialScale.z
+            );
         }
 
+        // Batasi posisi X
         float clampedX = Mathf.Clamp(transform.position.x, minX, maxX);
-        transform.position = new Vector3(clampedX, transform.position.y, transform.position.z);
+        transform.position = new Vector3(
+            clampedX,
+            transform.position.y,
+            transform.position.z
+        );
     }
 
     void FixedUpdate()
     {
+        // Gerakan halus
         float targetSpeed = moveInput * moveSpeed;
         float speedDif = targetSpeed - rb.velocity.x;
-        float accelRate = (Mathf.Abs(targetSpeed) > 0.01f) ? acceleration : decceleration;
-        float movement = Mathf.Pow(Mathf.Abs(speedDif) * accelRate, 0.9f) * Mathf.Sign(speedDif);
+        float accelRate = (Mathf.Abs(targetSpeed) > 0.01f)
+            ? acceleration
+            : decceleration;
+
+        float movement = Mathf.Pow(
+            Mathf.Abs(speedDif) * accelRate,
+            0.9f
+        ) * Mathf.Sign(speedDif);
 
         rb.AddForce(movement * Vector2.right);
     }
 
+    // Trigger untuk Water, Mushroom, Finish, dan Enemy (jika Enemy pakai Is Trigger)
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        // Deteksi jatuh ke air
         if (collision.CompareTag("Water"))
         {
-            Respawn();
+            TakeDamage();
         }
 
-        // Deteksi menyentuh finish (papan kayu)
+        if (collision.CompareTag("Enemy"))
+        {
+            TakeDamage();
+        }
+
         if (collision.CompareTag("Finish"))
         {
             WinGame();
         }
 
-        // LOGIKA MENGAMBIL JAMUR
         if (collision.CompareTag("Mushroom"))
         {
             CollectMushroom(collision.gameObject);
         }
     }
 
+    // Collision untuk Enemy (jika Enemy TIDAK pakai Is Trigger)
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Enemy"))
+        {
+            TakeDamage();
+        }
+    }
+
     void CollectMushroom(GameObject mushroom)
     {
-        score += 1; // Tambah poin
-        UpdateScoreUI(); // Perbarui teks di layar
-        Destroy(mushroom); // Hilangkan objek jamur
+        score++;
+        UpdateScoreUI();
+        Destroy(mushroom);
     }
 
     void UpdateScoreUI()
     {
         if (scoreText != null)
         {
-            scoreText.text = "Mushroom: " + score; // Format tampilan teks skor
+            scoreText.text = "Mushroom: " + score;
         }
+    }
+
+    void UpdateLivesUI()
+    {
+        if (livesText != null)
+        {
+            livesText.text = "Lives: " + currentLives;
+        }
+    }
+
+    void TakeDamage()
+    {
+        // Jika sedang invincible, abaikan damage
+        if (isInvincible)
+            return;
+
+        // Aktifkan invincible sementara
+        isInvincible = true;
+
+        // Kurangi nyawa
+        currentLives--;
+        UpdateLivesUI();
+
+        Debug.Log("Nyawa tersisa: " + currentLives);
+
+        // Jika nyawa habis
+        if (currentLives <= 0)
+        {
+            GameOver();
+        }
+        else
+        {
+            Respawn();
+
+            // Matikan invincible setelah beberapa detik
+            Invoke(nameof(ResetInvincibility), damageCooldown);
+        }
+    }
+
+    void ResetInvincibility()
+    {
+        isInvincible = false;
+    }
+
+    void Respawn()
+    {
+        // Pindahkan player ke posisi awal
+        transform.position = startPosition;
+
+        // Hentikan kecepatan
+        rb.velocity = Vector2.zero;
+    }
+
+    void GameOver()
+    {
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+
+        // Hentikan player
+        rb.velocity = Vector2.zero;
+        rb.simulated = false;
+
+        // Tampilkan cursor
+        Cursor.visible = true;
+        Cursor.lockState = CursorLockMode.None;
     }
 
     void WinGame()
     {
         if (victoryPanel != null)
         {
-            victoryPanel.SetActive(true); 
-            rb.velocity = Vector2.zero;   
-            rb.simulated = false; 
-            
+            victoryPanel.SetActive(true);
+
+            rb.velocity = Vector2.zero;
+            rb.simulated = false;
+
             Cursor.visible = true;
             Cursor.lockState = CursorLockMode.None;
         }
     }
 
-    void Respawn()
+    public void Retry()
     {
-        transform.position = startPosition;
-        rb.velocity = Vector2.zero; 
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void BackToMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("MainMenu");
     }
 
     private void OnDrawGizmosSelected()
@@ -147,7 +276,10 @@ public class PlayerMovement : MonoBehaviour
         if (groundCheck != null)
         {
             Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(groundCheck.position, checkRadius);
+            Gizmos.DrawWireSphere(
+                groundCheck.position,
+                checkRadius
+            );
         }
     }
 }
