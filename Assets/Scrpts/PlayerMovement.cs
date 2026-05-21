@@ -32,6 +32,15 @@ public class PlayerMovement : MonoBehaviour
     [Header("Damage Settings")]
     public float damageCooldown = 1f;   // Jeda agar nyawa tidak berkurang berkali-kali
 
+    [Header("Audio Settings")]
+    public AudioSource audioSource;
+
+    public AudioClip jumpSound;
+    public AudioClip damageSound;
+    public AudioClip mushroomSound;
+    public AudioClip winSound;
+    public AudioClip gameOverSound;
+
     private Rigidbody2D rb;
     private float moveInput;
     private bool isGrounded;
@@ -88,6 +97,9 @@ public class PlayerMovement : MonoBehaviour
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+
+            // Mainkan suara lompat
+            audioSource.PlayOneShot(jumpSound);
         }
 
         // Flip sprite
@@ -166,6 +178,8 @@ public class PlayerMovement : MonoBehaviour
     void CollectMushroom(GameObject mushroom)
     {
         score++;
+        // Mainkan suara mushroom
+        audioSource.PlayOneShot(mushroomSound);
         UpdateScoreUI();
         Destroy(mushroom);
     }
@@ -197,6 +211,8 @@ public class PlayerMovement : MonoBehaviour
 
         // Kurangi nyawa
         currentLives--;
+        // Mainkan suara damage
+        audioSource.PlayOneShot(damageSound);
         UpdateLivesUI();
 
         Debug.Log("Nyawa tersisa: " + currentLives);
@@ -231,6 +247,9 @@ public class PlayerMovement : MonoBehaviour
 
     void GameOver()
     {
+        // Mainkan suara game over
+        audioSource.PlayOneShot(gameOverSound);
+
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(true);
@@ -247,6 +266,9 @@ public class PlayerMovement : MonoBehaviour
 
     void WinGame()
     {
+        // Mainkan suara menang
+        audioSource.PlayOneShot(winSound);
+        
         if (victoryPanel != null)
         {
             victoryPanel.SetActive(true);
