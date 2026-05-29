@@ -6,21 +6,46 @@ public class MainMenu : MonoBehaviour
     public GameObject mainMenuPanel;
     public GameObject settingsPanel;
 
+    public GameObject tutorialPanel;
+
+    // =========================
+    // NEW GAME
+    // =========================
     public void NewGame()
     {
-        PlayerPrefs.SetInt("HasSave", 1);
+        // Hapus semua save lama
+        PlayerPrefs.DeleteKey("score");
+        PlayerPrefs.DeleteKey("lives");
+
+        PlayerPrefs.DeleteKey("playerX");
+        PlayerPrefs.DeleteKey("playerY");
+        PlayerPrefs.DeleteKey("playerZ");
+
+        // Tandai bukan continue
+        PlayerPrefs.SetInt("ContinueGame", 0);
+
+        PlayerPrefs.Save();
+
+        // Masuk game baru
         SceneManager.LoadScene("Game");
     }
 
+    // =========================
+    // CONTINUE
+    // =========================
     public void ContinueGame()
     {
-        if (PlayerPrefs.GetInt("HasSave", 0) == 1)
+        // Cek apakah ada save
+        if (PlayerPrefs.HasKey("playerX"))
         {
+            // Tandai ini continue
+            PlayerPrefs.SetInt("ContinueGame", 1);
+
             SceneManager.LoadScene("Game");
         }
         else
         {
-            Debug.Log("Belum ada save!");
+            Debug.Log("Belum ada save game!");
         }
     }
 
@@ -30,10 +55,20 @@ public class MainMenu : MonoBehaviour
         settingsPanel.SetActive(true);
     }
 
+    public void OpenTutorial()
+    {
+        tutorialPanel.SetActive(true);
+    }
+
+    public void CloseTutorial()
+    {
+        tutorialPanel.SetActive(false);
+    }
+
     public void CloseSettings()
     {
         settingsPanel.SetActive(false);
-        mainMenuPanel.SetActive(false);
+        mainMenuPanel.SetActive(true);
     }
 
     public void BackToMenu()
@@ -45,10 +80,10 @@ public class MainMenu : MonoBehaviour
     {
         Debug.Log("Game keluar");
 
-        #if UNITY_EDITOR
+#if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
-        #else
+#else
         Application.Quit();
-        #endif
+#endif
     }
 }

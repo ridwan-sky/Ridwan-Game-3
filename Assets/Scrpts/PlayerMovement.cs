@@ -53,28 +53,54 @@ public class PlayerMovement : MonoBehaviour
 
     void Start()
     {
+        Time.timeScale = 1f;
         rb = GetComponent<Rigidbody2D>();
 
-        startPosition = transform.position;
+        // Aktifkan physics lagi
+        rb.simulated = true;
+
+        // Reset velocity
+        rb.velocity = Vector2.zero;
+
+        // Reset constraints jika perlu
+        rb.freezeRotation = true;
+
+        // Ambil posisi save terakhir
+        // Cek apakah Continue atau New Game
+        int continueGame = PlayerPrefs.GetInt("ContinueGame", 0);
+
+        if (continueGame == 1)
+        {
+            // LOAD SAVE
+            Vector3 savedPosition = SaveManager.LoadPlayerPosition();
+
+            transform.position = savedPosition;
+            startPosition = savedPosition;
+
+            score = SaveManager.LoadScore();
+            currentLives = SaveManager.LoadLives();
+        }
+        else
+        {
+            // GAME BARU
+            startPosition = transform.position;
+
+            score = 0;
+            currentLives = maxLives;
+        }
+
         initialScale = transform.localScale;
 
         rb.gravityScale = 3.5f;
-        rb.freezeRotation = true;
         rb.interpolation = RigidbodyInterpolation2D.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
-        // Sembunyikan panel kemenangan
         if (victoryPanel != null)
             victoryPanel.SetActive(false);
 
-        // Inisialisasi nyawa
-        currentLives = maxLives;
-
-        // Sembunyikan Game Over
         if (gameOverPanel != null)
             gameOverPanel.SetActive(false);
 
-        // Update UI
         UpdateScoreUI();
         UpdateLivesUI();
     }
@@ -178,6 +204,7 @@ public class PlayerMovement : MonoBehaviour
     void CollectMushroom(GameObject mushroom)
     {
         score++;
+        SaveManager.SaveScore(score);
         // Mainkan suara mushroom
         audioSource.PlayOneShot(mushroomSound);
         UpdateScoreUI();
@@ -211,6 +238,7 @@ public class PlayerMovement : MonoBehaviour
 
         // Kurangi nyawa
         currentLives--;
+        SaveManager.SaveLives(currentLives);
         // Mainkan suara damage
         audioSource.PlayOneShot(damageSound);
         UpdateLivesUI();
@@ -284,6 +312,10 @@ public class PlayerMovement : MonoBehaviour
     public void Retry()
     {
         Time.timeScale = 1f;
+
+        // Reset save
+        PlayerPrefs.DeleteAll();
+
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
@@ -303,5 +335,30 @@ public class PlayerMovement : MonoBehaviour
                 checkRadius
             );
         }
+    }
+
+    public int GetScore()
+    {
+        return score;
+    }
+
+    public void SaveGame()
+    {
+        SaveManager.SaveScore(score);
+
+        SaveManager.SaveLives(currentLives);
+
+        SaveManager.SavePlayerPosition(transform.position);
+
+        // Tandai save ada
+        PlayerPrefs.SetInt("HasSave", 1);
+
+        // Simpan semua PlayerPrefs
+        PlayerPrefs.Save();
+
+        Debug.Log("Game Saved!");
+
+        // Kembali ke Main Menu
+        SceneManager.LoadScene("MainMenu");
     }
 }
